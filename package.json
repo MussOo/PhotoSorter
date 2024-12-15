@@ -5,15 +5,32 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
+    "build": "electron-builder --dir",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
+  "babel": {
+    "presets": [
+      "@babel/preset-env"
+    ]
+  },
   "devDependencies": {
-    "electron": "^33.2.1"
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "babel-loader": "^9.2.1",
+    "electron": "^33.2.1",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.22.0",
-    "face-api.js": "^0.22.2"
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "face-api.js": "^0.22.2",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5",
+    "vm-browserify": "^1.1.2"
   }
 }
