@@ -1,7 +1,5 @@
 if (!faceapi.nets.faceExpressionNet.isLoaded) {
     console.error('Le modèle faceExpressionNet n\'est pas chargé.');
-} else {
-    console.log('Le modèle faceExpressionNet est prêt à être utilisé.');
 }
 
 async function loadModels() {
@@ -36,6 +34,8 @@ const file_input_face_target = document.getElementById('file_input_face_target')
 const file_input_face_target_label = document.getElementById('file_input_face_target_label');
 const result_input_face_target = document.getElementById('result_input_face_target');
 const loading_face_target = document.getElementById('loading_face_target');
+let count_input_face_target = 0;
+let faces_target = [];
 
 file_input_face_target.addEventListener('change', async () => {
     file_input_face_target_label.classList.add('hidden');
@@ -60,6 +60,7 @@ file_input_face_target.addEventListener('change', async () => {
                 if (detections.length === 0) {
                     console.log("Aucun visage détecté");
                 }
+                faces_target = detections;
 
                 detections.forEach((detection, index) => {
                     const renderedFace = renderFaceWithInput(img, detection.detection.box);
@@ -71,10 +72,11 @@ file_input_face_target.addEventListener('change', async () => {
 
                     faceResult.innerHTML = `
                         <img src="${renderedFace}" alt="Visage détecté" style="max-width: 200px; border: 1px solid #ccc; margin-bottom: 10px;">
-                        <input type="text" placeholder="Nom de la personne" style="width: 200px; padding: 5px;">
+                        <input type="text" id="input_name_face_target_${index}" placeholder="Nom de la personne" style="width: 200px; padding: 5px;">
                     `;
 
                     result_input_face_target.appendChild(faceResult);
+                    count_input_face_target++;
                 });
 
                 result_input_face_target.classList.remove('hidden');
@@ -90,4 +92,98 @@ file_input_face_target.addEventListener('change', async () => {
             loading_face_target.classList.add('hidden');
         };
     }
+});
+
+
+
+let file_input_picture_find = document.getElementById('file_input_picture_find');
+let file_input_picture_find_label = document.getElementById('file_input_picture_find_label');
+let result_input_picture_find = document.getElementById('result_input_picture_find');
+let loading_picture_find = document.getElementById('loading_picture_find');
+let picture_ok = [];
+
+// Inclure JSZip via un CDN (à inclure dans votre HTML ou à charger dynamiquement)
+const script = document.createElement('script');
+script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+document.head.appendChild(script);
+
+file_input_picture_find.addEventListener('change', async () => {
+    let name_of_file = '';
+    while (count_input_face_target > 0) {
+        const input_name_face_target = document.getElementById(`input_name_face_target_${count_input_face_target - 1}`);
+        name_of_file += input_name_face_target.value + '_';
+        count_input_face_target--;
+    }
+
+    file_input_picture_find_label.classList.add('hidden');
+    loading_picture_find.classList.remove('hidden');
+    result_input_picture_find.innerHTML = ''; // Réinitialiser les résultats
+    picture_ok = []; // Réinitialiser les images correspondantes
+
+    const files = file_input_picture_find.files;
+    if (!files.length) return;
+
+    for (const file of files) {
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+
+        await new Promise(resolve => {
+            img.onload = async () => {
+                try {
+                    const detections = await faceapi
+                        .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions())
+                        .withFaceLandmarks()
+                        .withFaceExpressions()
+                        .withFaceDescriptors();
+
+                    if (detections.length === 0) {
+                        console.log("Aucun visage détecté");
+                    }
+
+                    detections.forEach(detection => {
+                        faces_target.forEach(face_target => {
+                            const distance = faceapi.euclideanDistance(detection.descriptor, face_target.descriptor);
+                            if (distance < 0.5) {
+                                picture_ok.push(file); // Ajouter le fichier correspondant
+                            }
+                        });
+                    });
+                } catch (error) {
+                    console.error('Erreur lors de la détection:', error);
+                } finally {
+                    resolve();
+                }
+            };
+
+            img.onerror = () => {
+                console.error('Erreur lors du chargement de l\'image.');
+                resolve();
+            };
+        });
+    }
+
+    const zip = new JSZip();
+    const folder = zip.folder("images");
+
+    picture_ok.forEach((file, index) => {
+        const fileName = `image_${index + 1}.${file.type.split('/')[1]}`; 
+        folder.file(fileName, file); 
+    });
+
+    zip.generateAsync({ type: "blob" })
+        .then(content => {
+            const zipName = `${name_of_file || "result"}.zip`;
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(content);
+            a.download = zipName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            console.log(`Fichier ${zipName} téléchargé avec succès.`);
+        })
+        .catch(error => {
+            console.error("Erreur lors de la génération du ZIP :", error);
+        });
+
+    loading_picture_find.classList.add('hidden'); // Masquer l'indicateur de chargement
 });
