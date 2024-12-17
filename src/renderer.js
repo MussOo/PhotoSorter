@@ -1,3 +1,67 @@
+localStorage.setItem("find_mode", "strict");
+
+let strict = document.getElementById('strict');
+let flexible = document.getElementById('flexible');
+
+if (localStorage.getItem("find_mode") === "flexible") {
+    document.getElementById('flexible').classList.add('active');
+    document.getElementById('strict').classList.remove('active');
+}else{
+    document.getElementById('flexible').classList.remove('active');
+    document.getElementById('strict').classList.add('active');
+}
+
+strict.addEventListener('click', () => {
+    localStorage.setItem("find_mode", "strict");
+    document.getElementById('flexible').classList.remove('active');
+    document.getElementById('strict').classList.add('active');
+});
+
+flexible.addEventListener('click', () => {
+    localStorage.setItem("find_mode", "flexible");
+    document.getElementById('strict').classList.remove('active');
+    document.getElementById('flexible').classList.add('active');
+});
+
+
+function Check_mode(all_faces, faces_target) {
+    if (localStorage.getItem("find_mode") === "flexible") {
+        return Flexible_mode(all_faces, faces_target);
+    } else {
+        return Strict_mode(all_faces, faces_target);
+    }
+}
+function Flexible_mode(all_faces, faces_target) {
+    for (let i = 0; i < all_faces.length; i++) {
+        for (let j = 0; j < faces_target.length; j++) {
+            const distance = faceapi.euclideanDistance(all_faces[i].descriptor, faces_target[j].descriptor);
+            if (distance < 0.5) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+function Strict_mode(all_faces, faces_target) {
+    if (all_faces.length !== faces_target.length) {
+        return false; 
+    }
+    const isMatch = (face, targets) => {
+        return targets.some(target => {
+            const distance = faceapi.euclideanDistance(face.descriptor, target.descriptor);
+            return distance < 0.5;
+        });
+    };
+
+    for (let i = 0; i < all_faces.length; i++) {
+        if (!isMatch(all_faces[i], faces_target)) {
+            return false; 
+        }
+    }
+    return true; 
+}
+
+
 if (!faceapi.nets.faceExpressionNet.isLoaded) {
     console.error('Le modèle faceExpressionNet n\'est pas chargé.');
 }
@@ -30,6 +94,7 @@ const renderFaceWithInput = (image, detectionBox) => {
     return canvas.toDataURL("image/jpeg");
 };
 
+const mode_select = document.getElementById('mode_select');
 const file_input_face_target = document.getElementById('file_input_face_target');
 const file_input_face_target_label = document.getElementById('file_input_face_target_label');
 const result_input_face_target = document.getElementById('result_input_face_target');
@@ -40,6 +105,8 @@ let faces_target = [];
 file_input_face_target.addEventListener('change', async () => {
     file_input_face_target_label.classList.add('hidden');
     loading_face_target.classList.remove('hidden');
+    mode_select.classList.add('hidden');
+
     result_input_face_target.innerHTML = ''; // Réinitialiser les résultats
 
     const files = file_input_face_target.files;
@@ -83,6 +150,7 @@ file_input_face_target.addEventListener('change', async () => {
             } catch (error) {
                 console.error('Erreur lors de la détection:', error);
             } finally {
+                file_input_picture_find_label.classList.remove('hidden');
                 loading_face_target.classList.add('hidden');
             }
         };
@@ -115,6 +183,7 @@ file_input_picture_find.addEventListener('change', async () => {
         count_input_face_target--;
     }
 
+    result_input_face_target.classList.add('hidden');   
     file_input_picture_find_label.classList.add('hidden');
     loading_picture_find.classList.remove('hidden');
     result_input_picture_find.innerHTML = ''; // Réinitialiser les résultats
@@ -140,14 +209,9 @@ file_input_picture_find.addEventListener('change', async () => {
                         console.log("Aucun visage détecté");
                     }
 
-                    detections.forEach(detection => {
-                        faces_target.forEach(face_target => {
-                            const distance = faceapi.euclideanDistance(detection.descriptor, face_target.descriptor);
-                            if (distance < 0.5) {
-                                picture_ok.push(file); // Ajouter le fichier correspondant
-                            }
-                        });
-                    });
+                    // Verification de la photo en fonction du mode de correspondance
+                    Check_mode(detections, faces_target) ? picture_ok.push(file) : console.log("Pas de correspondance");
+                    
                 } catch (error) {
                     console.error('Erreur lors de la détection:', error);
                 } finally {
@@ -180,6 +244,7 @@ file_input_picture_find.addEventListener('change', async () => {
             a.click();
             document.body.removeChild(a);
             console.log(`Fichier ${zipName} téléchargé avec succès.`);
+            window.location.reload();
         })
         .catch(error => {
             console.error("Erreur lors de la génération du ZIP :", error);
